@@ -1,8 +1,11 @@
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+
+use cursive::event::Key;
 use cursive::views::Dialog;
 use cursive::{Cursive, CursiveExt};
 use rakelog::{rakeDebug, rakeInfo};
-use std::thread;
-use std::time::Duration;
 
 pub struct RakeGUI {
     pub siv: Cursive,
@@ -21,11 +24,26 @@ impl RakeGUI {
             Dialog::text("Welcome to Rake!")
                 .title("R A K E")
                 .button("Start", |s| start(s))
+                .button("Sandbox", |s| sandbox(s, Grid::new(20, 10)))
                 .button("Demo", |s| demo(s, Grid::new(20, 10)))
                 .button("Quit", |s| s.quit()),
         );
 
         s.run();
+    }
+
+    pub fn death_screen(s: &mut Cursive, grid: Grid) {
+        s.add_layer(
+            Dialog::text("YOU DIED!")
+                .button("Main Menu", |s| {
+                    s.pop_layer();
+                    RakeGUI::main_menu(s);
+                })
+                .button("Replay", move |s| {
+                    s.pop_layer();
+                    sandbox(s, grid);
+                }),
+        );
     }
 
     pub fn screen_test(s: &mut Cursive, snake: (i32, i32)) {
@@ -130,4 +148,85 @@ pub fn demo(s: &mut Cursive, grid: Grid) {
             });
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum SnakeDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+#[derive(Clone, Copy)]
+struct Snake {
+    x: i32,
+    y: i32,
+    direction: SnakeDirection,
+}
+
+impl Snake {
+    pub fn new() -> Self {
+        Self {
+            x: 0,
+            y: 0,
+            direction: SnakeDirection::Right,
+        }
+    }
+}
+
+pub fn sandbox(s: &mut Cursive, grid: Grid) {
+    let snake = Arc::new(Mutex::new(Snake::new())).clone();
+
+    // let mut snake = Snake::new();
+    s.pop_layer();
+    let sink = s.cb_sink().clone();
+    let delay = 120 as u64;
+
+    let snake_clone_l = snake.clone();
+    s.add_global_callback(Key::Left, move |_s| {
+        snake_clone_l.lock().unwrap().direction = SnakeDirection::Left
+    });
+
+    let snake_clone_r = snake.clone();
+    s.add_global_callback(Key::Right, move |_s| {
+        snake_clone_r.lock().unwrap().direction = SnakeDirection::Right
+    });
+
+    let snake_clone_u = snake.clone();
+    s.add_global_callback(Key::Up, move |_s| {
+        snake_clone_u.lock().unwrap().direction = SnakeDirection::Up
+    });
+
+    let snake_clone_d = snake.clone();
+    s.add_global_callback(Key::Down, move |_s| {
+        snake_clone_d.lock().unwrap().direction = SnakeDirection::Down
+    });
+
+    // Having input handlers would require snake to be an Arc<Mutex<Snake>> :/
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(delay));
+        let mut snake = snake.lock().unwrap();
+        if (snake.x < 0 || snake.y < 0) || (snake.x >= grid.x as i32 || snake.y >= grid.y as i32) {
+            let _ = sink.send(Box::new(move |s| {
+                RakeGUI::death_screen(s, grid);
+            }));
+            break;
+        }
+
+        match snake.direction {
+            SnakeDirection::Up => snake.y = snake.y - 1,
+            SnakeDirection::Down => snake.y = snake.y + 1,
+            SnakeDirection::Right => snake.x = snake.x + 1,
+            SnakeDirection::Left => snake.x = snake.x - 1,
+        }
+        rakeDebug!("Snake moved to {}:{}", snake.x, snake.y);
+        // Send the command for the sink.
+        // Im not fully sure but I belive the main cursive is not thread safe.
+        let sx = snake.x.clone();
+        let sy = snake.y.clone();
+
+        let _ = sink.send(Box::new(move |s: &mut Cursive| {
+            RakeGUI::screen_test(s, (sx, sy));
+        }));
+    });
 }
