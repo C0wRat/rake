@@ -1,9 +1,10 @@
-use rakelog::{rake_log, rakeInfo};
+use rakelog::{rakeInfo, rake_log};
 
 use rakedisplay::RakeGUI;
 
 fn main() {
     rake_log::init("rake.log");
     rakeInfo!("Started rake!");
-    RakeGUI::main_menu();
+    let mut gui = RakeGUI::new();
+    RakeGUI::main_menu(&mut gui.siv);
 }
