@@ -6,14 +6,16 @@ use cursive::builder::Object;
 use cursive::event::Key;
 use cursive::reexports::time::format_description::modifier::Padding;
 use cursive::view::Margins;
-use cursive::views::TextView;
+use cursive::views::{TextContent, TextView};
 use cursive::views::{Dialog, LinearLayout, TextArea};
 use cursive::Vec2;
 use cursive::View;
 use cursive::{direction, Printer};
 use cursive::{CbSink, Cursive, CursiveExt};
 use rakelog::{rakeDebug, rakeInfo};
+use rakemodel::food::food;
 use rakemodel::{grid::{Grid,GridObject,ObjectType}, snake::{Snake, SnakeDirection}};
+use rand::Rng;
 
 pub struct RakeGUI {
     pub siv: Cursive,
@@ -33,7 +35,7 @@ impl RakeGUI {
                 .title("R A K E")
                 .button("Start", |s| start(s))
                 .button("Sandbox", |s| sandbox(s, Grid::new(20, 10)))
-                .button("Demo", |s| demo(s, Grid::new(20, 10)))
+                .button("Demo", |s| demo(s, Grid::new(50, 50)))
                 .button("Quit", |s| s.quit()),
         );
 
@@ -58,15 +60,18 @@ impl RakeGUI {
         s: &mut Cursive,
         objects: Vec<GridObject>,
         snake_direction: &SnakeDirection,
+        grid: &mut Grid,
+        score: i32
     ) {
         s.pop_layer();
-        let mut grid = Grid::new(20, 10);
 
-        let title = format!("{:#?}", snake_direction);
+        // let title = format!("{:#?}", snake_direction);
         s.add_layer(
-            Dialog::text(grid.gen_grid(objects))
+        LinearLayout::vertical()
+                .child(Dialog::text(grid.gen_grid(objects))
                 .padding(Margins::lrtb(0, 0, 0, 0))
-                .title("R A K E"),
+                .title("R A K E"))
+                .child(Dialog::text("").title(format!("score: {score}")))
         );
     }
 }
@@ -94,7 +99,8 @@ pub fn demo(s: &mut Cursive, grid: Grid) {
                 let mut grid_objects = Vec::new();
                 grid_objects.push(GridObject::new(x, y, 'o', ObjectType::Snake, None));
                 let _ = sink.send(Box::new(move |s: &mut Cursive| {
-                    RakeGUI::render_screen(s, grid_objects, &SnakeDirection::Down);
+                    let mut grid_c = grid.clone();
+                    RakeGUI::render_screen(s, grid_objects, &SnakeDirection::Down, &mut grid_c, 0);
                 }));
 
                 // We are basically just waiting for this to finish.
@@ -113,7 +119,7 @@ pub fn demo(s: &mut Cursive, grid: Grid) {
 
 pub fn sandbox(s: &mut Cursive, grid: Grid) {
     let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
-
+    rakeInfo!("Grid Size: {}.{}", grid.x, grid.y);
     // let mut snake = Snake::new();
     s.pop_layer();
     let sink = s.cb_sink().clone();
@@ -139,12 +145,14 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
         snake_clone_d.lock().unwrap().head.direction = Some(SnakeDirection::Down)
     });
 
+    let mut food = food::new(5, 5, 1, 'o');
+
     // Having input handlers would require snake to be an Arc<Mutex<Snake>> :/
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(delay));
         let mut snake = snake.lock().unwrap();
 
-        if snake.body.len() < 500 {
+        if snake.body.len() < snake.size as usize {
             let body_node = if snake.body.is_empty() {
                 // rakeInfo!("Adding body_node to head");
                 GridObject::new(
@@ -196,10 +204,9 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
             SnakeDirection::Right => snake.head.x = snake.head.x + 1,
             SnakeDirection::Left => snake.head.x = snake.head.x - 1,
         }
-
-        rakeInfo!("---");
+        
         snake.head.i = Snake::update_body(snake.head.clone(), old_head);
-        rakeInfo!("---");
+
 
         // rakeDebug!("Snake moved to {}:{}", snake.head.x, snake.head.y);
         // Send the command for the sink.
@@ -211,6 +218,8 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
         let mut grid_objects = Vec::new();
 
         grid_objects.push(snake_head);
+
+        grid_objects.push(food.clone().body);
 
         for body_node in snake_body.iter() {
             grid_objects.push(body_node.clone());
@@ -233,9 +242,20 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
 
         let mut die = false;
         if !collisions.is_empty() {
-            for collision in collisions.iter() {
+            for collision in collisions.iter_mut() {
                 match collision.obj_type {
                     ObjectType::None => rakeDebug!("Collided with nothing?"),
+                    ObjectType::Food(value) => {
+                        snake.size = snake.size + value ;
+                        let mut rng = rand::rng();
+
+                        let x = rng.random_range(0..grid.x) as i32;
+                        let y = rng.random_range(0..grid.y) as i32;
+                        rakeInfo!("Old Location: {}.{}", collision.x, collision.y);
+                        rakeInfo!("New random Location: {x}.{y}");
+                        food.body.x = rng.random_range(0..grid.x) as i32;
+                        food.body.y = rng.random_range(0..grid.y) as i32;
+                    },
                     ObjectType::Snake => {
                         // rakeInfo!("Collided with self.");
                         die = true;
@@ -251,8 +271,11 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
         }
 
         let dir = snake.head.direction.unwrap().clone();
+        let score = snake.clone().size;
         let _ = sink.send(Box::new(move |s: &mut Cursive| {
-            RakeGUI::render_screen(s, grid_objects, &dir);
+            let mut grid_c = grid.clone();
+            
+            RakeGUI::render_screen(s, grid_objects, &dir, &mut grid_c, score);
         }));
     });
 }

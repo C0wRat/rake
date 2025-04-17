@@ -9,3 +9,4 @@ log = "0.4.27"
 
 rakelog = {path="../rakelog"}
 rakemodel = {path="../rakemodel"}
+rand = "0.9.0"

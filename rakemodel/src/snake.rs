@@ -13,6 +13,7 @@ pub enum SnakeDirection {
 pub struct Snake {
     pub head: GridObject,
     pub body: Vec<GridObject>,
+    pub size: i32,
     // direction: SnakeDirection,
 }
 
@@ -21,6 +22,7 @@ impl Snake {
         Self {
             head: GridObject::new(x, y, '●', ObjectType::Snake, Some(SnakeDirection::Right)),
             body: Vec::new(),
+            size: 0,
             // direction: SnakeDirection::Right,
         }
     }
@@ -54,9 +56,6 @@ impl Snake {
     
             (_, _) => ' ',
         };
-    
-        rakeInfo!("Going from {:#?} -> {:#?}: {char}", current_dir, next_dir);
-    
         return char;
     }
 }

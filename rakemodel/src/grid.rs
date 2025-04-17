@@ -70,4 +70,5 @@ impl GridObject {
 pub enum ObjectType {
     None,
     Snake,
+    Food(i32),
 }
