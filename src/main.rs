@@ -1,6 +1,5 @@
-use rakelog::{rakeInfo, rake_log};
-
 use rakedisplay::RakeGUI;
+use rakelog::{rakeInfo, rake_log};
 
 fn main() {
     rake_log::init("rake.log");

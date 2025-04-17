@@ -2,10 +2,18 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use cursive::builder::Object;
 use cursive::event::Key;
-use cursive::views::Dialog;
-use cursive::{Cursive, CursiveExt};
+use cursive::reexports::time::format_description::modifier::Padding;
+use cursive::view::Margins;
+use cursive::views::TextView;
+use cursive::views::{Dialog, LinearLayout, TextArea};
+use cursive::Vec2;
+use cursive::View;
+use cursive::{direction, Printer};
+use cursive::{CbSink, Cursive, CursiveExt};
 use rakelog::{rakeDebug, rakeInfo};
+use rakemodel::{grid::{Grid,GridObject,ObjectType}, snake::{Snake, SnakeDirection}};
 
 pub struct RakeGUI {
     pub siv: Cursive,
@@ -46,73 +54,23 @@ impl RakeGUI {
         );
     }
 
-    pub fn screen_test(s: &mut Cursive, snake: (i32, i32)) {
+    pub fn render_screen(
+        s: &mut Cursive,
+        objects: Vec<GridObject>,
+        snake_direction: &SnakeDirection,
+    ) {
         s.pop_layer();
         let mut grid = Grid::new(20, 10);
-        s.add_layer(Dialog::text(grid.gen_grid(snake)).title("R A K E"));
+
+        let title = format!("{:#?}", snake_direction);
+        s.add_layer(
+            Dialog::text(grid.gen_grid(objects))
+                .padding(Margins::lrtb(0, 0, 0, 0))
+                .title("R A K E"),
+        );
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Grid {
-    x: usize,
-    y: usize,
-}
-
-impl Grid {
-    fn new(x: usize, y: usize) -> Self {
-        Self { x, y }
-    }
-
-    pub fn gen_grid(&mut self, snake: (i32, i32)) -> String {
-        // Generating a grid needs the x & y for the gird size
-        // We also need a snake corodinate (x,y)
-        // So we first want to get the ammont of rows we are going to create (y)
-        let mut grid = String::new();
-        for y_cord in 0..self.y {
-            // For each row we want to know if the snake is in it.
-            if snake.1 == y_cord as i32 {
-                // If the sanke is in the row then we will need to draw it.
-                let row = self.gen_row(Some(snake)) + "\n";
-                grid.push_str(&row);
-            } else {
-                // If no snake is in the row then we won't bother drawing it.
-                // This probably could just take the logic out of gen_row, but for now this works.
-                let row = self.gen_row(None) + "\n";
-                grid.push_str(&row);
-            }
-        }
-        // We then return the grid string to be displayed.
-        return grid;
-    }
-
-    fn gen_row(&mut self, snake: Option<(i32, i32)>) -> String {
-        let mut row = String::new();
-
-        // Check if we are drawing a snake or an empty row.
-        let snake_x = match snake {
-            Some(snake) => snake.0,
-            None => {
-                // We can just draw loads of " "'s if its empty.
-                let empty_row = " ".repeat(self.x);
-                row.push_str(&empty_row);
-                return row;
-            }
-        };
-
-        // if the snake is in this row we need to find it's x cord.
-        for x_cord in 0..self.x {
-            if snake_x == x_cord as i32 {
-                // if the snake is in this x cord we add o to the row.
-                row.push('o');
-            } else {
-                row.push(' ');
-            }
-        }
-
-        return row;
-    }
-}
 
 pub fn start(s: &mut Cursive) {
     s.pop_layer();
@@ -133,8 +91,10 @@ pub fn demo(s: &mut Cursive, grid: Grid) {
                 rakeDebug!("Snake moved to {}:{}", x, y);
                 // Send the command for the sink.
                 // Im not fully sure but I belive the main cursive is not thread safe.
+                let mut grid_objects = Vec::new();
+                grid_objects.push(GridObject::new(x, y, 'o', ObjectType::Snake, None));
                 let _ = sink.send(Box::new(move |s: &mut Cursive| {
-                    RakeGUI::screen_test(s, (x, y));
+                    RakeGUI::render_screen(s, grid_objects, &SnakeDirection::Down);
                 }));
 
                 // We are basically just waiting for this to finish.
@@ -150,83 +110,149 @@ pub fn demo(s: &mut Cursive, grid: Grid) {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum SnakeDirection {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-#[derive(Clone, Copy)]
-struct Snake {
-    x: i32,
-    y: i32,
-    direction: SnakeDirection,
-}
-
-impl Snake {
-    pub fn new() -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            direction: SnakeDirection::Right,
-        }
-    }
-}
 
 pub fn sandbox(s: &mut Cursive, grid: Grid) {
-    let snake = Arc::new(Mutex::new(Snake::new())).clone();
+    let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
 
     // let mut snake = Snake::new();
     s.pop_layer();
     let sink = s.cb_sink().clone();
-    let delay = 120 as u64;
+    let delay = 150 as u64;
 
     let snake_clone_l = snake.clone();
     s.add_global_callback(Key::Left, move |_s| {
-        snake_clone_l.lock().unwrap().direction = SnakeDirection::Left
+        snake_clone_l.lock().unwrap().head.direction = Some(SnakeDirection::Left)
     });
 
     let snake_clone_r = snake.clone();
     s.add_global_callback(Key::Right, move |_s| {
-        snake_clone_r.lock().unwrap().direction = SnakeDirection::Right
+        snake_clone_r.lock().unwrap().head.direction = Some(SnakeDirection::Right)
     });
 
     let snake_clone_u = snake.clone();
     s.add_global_callback(Key::Up, move |_s| {
-        snake_clone_u.lock().unwrap().direction = SnakeDirection::Up
+        snake_clone_u.lock().unwrap().head.direction = Some(SnakeDirection::Up)
     });
 
     let snake_clone_d = snake.clone();
     s.add_global_callback(Key::Down, move |_s| {
-        snake_clone_d.lock().unwrap().direction = SnakeDirection::Down
+        snake_clone_d.lock().unwrap().head.direction = Some(SnakeDirection::Down)
     });
 
     // Having input handlers would require snake to be an Arc<Mutex<Snake>> :/
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(delay));
         let mut snake = snake.lock().unwrap();
-        if (snake.x < 0 || snake.y < 0) || (snake.x >= grid.x as i32 || snake.y >= grid.y as i32) {
+
+        if snake.body.len() < 500 {
+            let body_node = if snake.body.is_empty() {
+                // rakeInfo!("Adding body_node to head");
+                GridObject::new(
+                    snake.head.x,
+                    snake.head.y,
+                    'X',
+                    ObjectType::Snake,
+                    // snake.head.direction,
+                    snake.head.direction,
+                )
+            } else {
+                let tail = snake.body.last().unwrap();
+                // rakeInfo!("Adding body_node to tail");
+                GridObject::new(tail.x, tail.y, 'X', ObjectType::Snake, tail.direction)
+            };
+            // rakeInfo!("Adding {:#?} to snake body.", body_node);
+            snake.body.push(body_node);
+        }
+
+        if (snake.head.x < 0 || snake.head.y < 0)
+            || (snake.head.x >= grid.x as i32 || snake.head.y >= grid.y as i32)
+        {
             let _ = sink.send(Box::new(move |s| {
                 RakeGUI::death_screen(s, grid);
             }));
             break;
         }
 
-        match snake.direction {
-            SnakeDirection::Up => snake.y = snake.y - 1,
-            SnakeDirection::Down => snake.y = snake.y + 1,
-            SnakeDirection::Right => snake.x = snake.x + 1,
-            SnakeDirection::Left => snake.x = snake.x - 1,
+        if !snake.body.is_empty() {
+            let old_snake = snake.clone();
+            for (index, body_node) in snake.body.iter_mut().enumerate() {
+                if index != 0 {
+                    body_node.i = old_snake.body[index - 1].i;
+                    body_node.x = old_snake.body[index - 1].x;
+                    body_node.y = old_snake.body[index - 1].y;
+                } else {
+                    body_node.i = Snake::update_body(body_node.clone(), old_snake.head.clone());
+                    body_node.direction = old_snake.head.direction;
+                    body_node.x = old_snake.head.x;
+                    body_node.y = old_snake.head.y;
+                }
+            }
         }
-        rakeDebug!("Snake moved to {}:{}", snake.x, snake.y);
+
+        let old_head = snake.head.clone();
+        match snake.head.direction.unwrap() {
+            SnakeDirection::Up => snake.head.y = snake.head.y - 1,
+            SnakeDirection::Down => snake.head.y = snake.head.y + 1,
+            SnakeDirection::Right => snake.head.x = snake.head.x + 1,
+            SnakeDirection::Left => snake.head.x = snake.head.x - 1,
+        }
+
+        rakeInfo!("---");
+        snake.head.i = Snake::update_body(snake.head.clone(), old_head);
+        rakeInfo!("---");
+
+        // rakeDebug!("Snake moved to {}:{}", snake.head.x, snake.head.y);
         // Send the command for the sink.
         // Im not fully sure but I belive the main cursive is not thread safe.
-        let sx = snake.x.clone();
-        let sy = snake.y.clone();
+        let snake_head = snake.head.clone();
+        // This is gonna be cloning quite a bit of data if the snake gets too long.
+        let snake_body = snake.body.clone();
 
+        let mut grid_objects = Vec::new();
+
+        grid_objects.push(snake_head);
+
+        for body_node in snake_body.iter() {
+            grid_objects.push(body_node.clone());
+        }
+
+        // rakeInfo!("Objects: {:#?}", grid_objects);
+        let mut collisions: Vec<GridObject> = Vec::new();
+        for (index_a, object_a) in grid_objects.iter().enumerate() {
+            if object_a.obj_type == ObjectType::Snake {
+                for (index_b, object_b) in grid_objects.iter().enumerate() {
+                    if (object_a.x == object_b.x)
+                        && (object_a.y == object_b.y)
+                        && (index_a != index_b)
+                    {
+                        collisions.push(object_b.clone());
+                    }
+                }
+            }
+        }
+
+        let mut die = false;
+        if !collisions.is_empty() {
+            for collision in collisions.iter() {
+                match collision.obj_type {
+                    ObjectType::None => rakeDebug!("Collided with nothing?"),
+                    ObjectType::Snake => {
+                        // rakeInfo!("Collided with self.");
+                        die = true;
+                    }
+                }
+            }
+        }
+        if die {
+            let _ = sink.send(Box::new(move |s| {
+                RakeGUI::death_screen(s, grid);
+            }));
+            break;
+        }
+
+        let dir = snake.head.direction.unwrap().clone();
         let _ = sink.send(Box::new(move |s: &mut Cursive| {
-            RakeGUI::screen_test(s, (sx, sy));
+            RakeGUI::render_screen(s, grid_objects, &dir);
         }));
     });
 }

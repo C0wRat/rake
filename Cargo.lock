@@ -684,6 +684,7 @@ dependencies = [
  "cursive",
  "log",
  "rakelog",
+ "rakemodel",
 ]
 
 [[package]]
@@ -693,6 +694,14 @@ dependencies = [
  "chrono",
  "env_logger",
  "log",
+]
+
+[[package]]
+name = "rakemodel"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "rakelog",
 ]
 
 [[package]]

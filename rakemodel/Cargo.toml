@@ -1,11 +1,8 @@
 [package]
-name = "rakedisplay"
+name = "rakemodel"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cursive = "0.21.1"
 log = "0.4.27"
-
 rakelog = {path="../rakelog"}
-rakemodel = {path="../rakemodel"}
