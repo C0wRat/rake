@@ -6,7 +6,7 @@ use cursive::builder::Object;
 use cursive::event::Key;
 use cursive::reexports::time::format_description::modifier::Padding;
 use cursive::view::Margins;
-use cursive::views::{TextContent, TextView};
+use cursive::views::{Button, ListView, Panel, ShadowView, TextContent, TextView};
 use cursive::views::{Dialog, LinearLayout, TextArea};
 use cursive::Vec2;
 use cursive::View;
@@ -30,14 +30,15 @@ impl RakeGUI {
     pub fn main_menu(s: &mut Cursive) {
         rakeDebug!("loading rake start screen");
         s.pop_layer();
-        s.add_layer(
-            Dialog::text("Welcome to Rake!")
-                .title("R A K E")
-                .button("Start", |s| start(s))
-                .button("Sandbox", |s| sandbox(s, Grid::new(20, 10)))
-                .button("Demo", |s| demo(s, Grid::new(50, 50)))
-                .button("Quit", |s| s.quit()),
+
+        s.add_layer(LinearLayout::vertical().child(TextView::new(" R A K E"))
+            .child(Panel::new(LinearLayout::vertical()
+                .child(Button::new("Start", |s| sandbox(s, Grid::new(20, 10))))
+                .child(Button::new("Quit", |s| s.quit()))
+                )
+            )
         );
+            
 
         s.run();
     }
@@ -71,7 +72,7 @@ impl RakeGUI {
                 .child(Dialog::text(grid.gen_grid(objects))
                 .padding(Margins::lrtb(0, 0, 0, 0))
                 .title("R A K E"))
-                .child(Dialog::text("").title(format!("score: {score}")))
+                .child(Dialog::text("").title(format!("score:{score}")))
         );
     }
 }
