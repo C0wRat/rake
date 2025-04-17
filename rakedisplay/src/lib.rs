@@ -34,6 +34,8 @@ impl RakeGUI {
         s.add_layer(LinearLayout::vertical().child(TextView::new(" R A K E"))
             .child(Panel::new(LinearLayout::vertical()
                 .child(Button::new("Start", |s| sandbox(s, Grid::new(20, 10))))
+                .child(Button::new("Info", |s| rakeInfo!("Info button pushed")))
+                .child(Button::new("Help", |s| rakeInfo!("HELP button pushed")))
                 .child(Button::new("Quit", |s| s.quit()))
                 )
             )
@@ -68,12 +70,14 @@ impl RakeGUI {
 
         // let title = format!("{:#?}", snake_direction);
         s.add_layer(
-        LinearLayout::vertical()
-                .child(Dialog::text(grid.gen_grid(objects))
-                .padding(Margins::lrtb(0, 0, 0, 0))
-                .title("R A K E"))
-                .child(Dialog::text("").title(format!("score:{score}")))
-        );
+            LinearLayout::horizontal()
+            .child( LinearLayout::vertical()
+            .child(Dialog::text(grid.gen_grid(objects))
+            .padding(Margins::lrtb(0, 0, 0, 0))
+            .title("R A K E"))
+            .child(Dialog::text("").title(format!("score:{score}")))
+    ).child(Dialog::text("")));
+       
     }
 }
 
