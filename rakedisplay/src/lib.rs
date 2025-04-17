@@ -132,22 +132,34 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
 
     let snake_clone_l = snake.clone();
     s.add_global_callback(Key::Left, move |_s| {
-        snake_clone_l.lock().unwrap().head.direction = Some(SnakeDirection::Left)
+        let mut snake = snake_clone_l.lock().unwrap();
+        if snake.head.direction != Some(SnakeDirection::Right){
+            snake.head.direction = Some(SnakeDirection::Left)
+        }
     });
 
     let snake_clone_r = snake.clone();
     s.add_global_callback(Key::Right, move |_s| {
-        snake_clone_r.lock().unwrap().head.direction = Some(SnakeDirection::Right)
+        let mut snake = snake_clone_r.lock().unwrap();
+        if snake.head.direction != Some(SnakeDirection::Left){
+           snake.head.direction = Some(SnakeDirection::Right)
+        }
     });
 
     let snake_clone_u = snake.clone();
     s.add_global_callback(Key::Up, move |_s| {
-        snake_clone_u.lock().unwrap().head.direction = Some(SnakeDirection::Up)
+        let mut snake = snake_clone_u.lock().unwrap();
+        if snake.head.direction != Some(SnakeDirection::Down){
+           snake.head.direction = Some(SnakeDirection::Up)
+        }
     });
 
     let snake_clone_d = snake.clone();
     s.add_global_callback(Key::Down, move |_s| {
-        snake_clone_d.lock().unwrap().head.direction = Some(SnakeDirection::Down)
+        let mut snake = snake_clone_d.lock().unwrap();
+        if snake.head.direction != Some(SnakeDirection::Up){
+           snake.head.direction = Some(SnakeDirection::Down)
+        }
     });
 
     let mut food = food::new(5, 5, 1, 'o');
