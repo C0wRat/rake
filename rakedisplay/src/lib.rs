@@ -1,17 +1,13 @@
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use cursive::builder::Object;
 use cursive::event::Key;
-use cursive::reexports::time::format_description::modifier::Padding;
 use cursive::view::Margins;
-use cursive::views::{Button, ListView, Panel, ShadowView, TextContent, TextView};
-use cursive::views::{Dialog, LinearLayout, TextArea};
-use cursive::Vec2;
-use cursive::View;
-use cursive::{direction, Printer};
-use cursive::{CbSink, Cursive, CursiveExt};
+use cursive::views::{Button, Panel, TextView};
+use cursive::views::{Dialog, LinearLayout};
+use cursive::Cursive;
 use rakelog::{rakeDebug, rakeInfo};
 use rakemodel::food::food;
 use rakemodel::{grid::{Grid,GridObject,ObjectType}, snake::{Snake, SnakeDirection}};
@@ -21,40 +17,46 @@ pub struct RakeGUI {
     pub siv: Cursive,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum DisplayMsg{
+    Start,
+    MainMenu,
+}
+
 impl RakeGUI {
     pub fn new() -> Self {
         let siv = Cursive::new();
         Self { siv }
     }
 
-    pub fn main_menu(s: &mut Cursive) {
+    pub fn main_menu(s: &mut Cursive, display_s: Sender::<DisplayMsg>) {
         rakeDebug!("loading rake start screen");
         s.pop_layer();
 
         s.add_layer(LinearLayout::vertical().child(TextView::new(" R A K E"))
             .child(Panel::new(LinearLayout::vertical()
-                .child(Button::new("Start", |s| sandbox(s, Grid::new(20, 10))))
+                .child(Button::new("Start", move|s| display_s.send(DisplayMsg::Start).unwrap()))
                 .child(Button::new("Info", |s| rakeInfo!("Info button pushed")))
                 .child(Button::new("Help", |s| rakeInfo!("HELP button pushed")))
                 .child(Button::new("Quit", |s| s.quit()))
                 )
             )
         );
-            
-
-        s.run();
     }
 
-    pub fn death_screen(s: &mut Cursive, grid: Grid) {
+    pub fn death_screen(s: &mut Cursive, grid: Grid, display_s: Sender::<DisplayMsg>) {
+        let mut display_mm_s = display_s.clone();
+        let mut display_rp_s = display_s.clone();
+        
         s.add_layer(
             Dialog::text("YOU DIED!")
-                .button("Main Menu", |s| {
+                .button("Main Menu", move|s| {
                     s.pop_layer();
-                    RakeGUI::main_menu(s);
+                    let _ = display_mm_s.send(DisplayMsg::MainMenu);
                 })
-                .button("Replay", move |s| {
+                .button("Replay", move|s| {
                     s.pop_layer();
-                    sandbox(s, grid);
+                    let _ = display_rp_s.clone().send(DisplayMsg::Start);
                 }),
         );
     }
@@ -87,42 +89,8 @@ pub fn start(s: &mut Cursive) {
     s.add_layer(Dialog::text("Starting..."));
 }
 
-pub fn demo(s: &mut Cursive, grid: Grid) {
-    s.pop_layer();
-    let sink = s.cb_sink().clone();
-    for x in 0..grid.x as i32 {
-        for y in 0..grid.y as i32 {
-            // We need the sink to allow for the thread sleep.
-            // Maybe there is a better way to apporach this.
-            let sink = sink.clone();
-            let delay = (x * grid.y as i32 + y) as u64 * 120;
-            thread::spawn(move || {
-                thread::sleep(Duration::from_millis(delay));
-                rakeDebug!("Snake moved to {}:{}", x, y);
-                // Send the command for the sink.
-                // Im not fully sure but I belive the main cursive is not thread safe.
-                let mut grid_objects = Vec::new();
-                grid_objects.push(GridObject::new(x, y, 'o', ObjectType::Snake, None));
-                let _ = sink.send(Box::new(move |s: &mut Cursive| {
-                    let mut grid_c = grid.clone();
-                    RakeGUI::render_screen(s, grid_objects, &SnakeDirection::Down, &mut grid_c, 0);
-                }));
 
-                // We are basically just waiting for this to finish.
-                // It's only a demo so I really cant be bothered to try and get
-                // this workign properly as it won't really be reachable by a player.
-                if (x == (grid.x as i32 - 1)) && (y == (grid.y as i32 - 1)) {
-                    let _ = sink.send(Box::new(move |s| {
-                        RakeGUI::main_menu(s);
-                    }));
-                }
-            });
-        }
-    }
-}
-
-
-pub fn sandbox(s: &mut Cursive, grid: Grid) {
+pub fn sandbox(s: &mut Cursive, grid: Grid, display_s: Sender<DisplayMsg>) {
     let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
     rakeInfo!("Grid Size: {}.{}", grid.x, grid.y);
     // let mut snake = Snake::new();
@@ -193,7 +161,7 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
             || (snake.head.x >= grid.x as i32 || snake.head.y >= grid.y as i32)
         {
             let _ = sink.send(Box::new(move |s| {
-                RakeGUI::death_screen(s, grid);
+                RakeGUI::death_screen(s, grid, display_s);
             }));
             break;
         }
@@ -282,7 +250,7 @@ pub fn sandbox(s: &mut Cursive, grid: Grid) {
         }
         if die {
             let _ = sink.send(Box::new(move |s| {
-                RakeGUI::death_screen(s, grid);
+                RakeGUI::death_screen(s, grid, display_s);
             }));
             break;
         }
