@@ -1,7 +1,7 @@
 use rakedisplay::DisplayMsg;
 use rakelog::{rakeInfo, rakeDebug, rakeError};
 use rakemodel::{food::food, grid::Grid, grid::GridObject, grid::ObjectType, snake::Snake, snake::SnakeDirection};
-use crate::RakeGUI;
+use crate::{util, RakeGUI};
 
 use cursive::{Cursive, CbSink, event::Key};
 use std::sync::mpsc::{Receiver, Sender};
@@ -54,6 +54,9 @@ impl Game{
         });
     }
     pub fn sandbox(s: &mut Cursive, grid: Grid, display_s: Sender<DisplayMsg>) {
+
+        let high_score = util::read_score();
+
         let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
         rakeInfo!("Grid Size: {}.{}", grid.x, grid.y);
         // let mut snake = Snake::new();
@@ -119,14 +122,16 @@ impl Game{
                 // rakeInfo!("Adding {:#?} to snake body.", body_node);
                 snake.body.push(body_node);
             }
-    
+            
+            let mut die = false;
             if (snake.head.x < 0 || snake.head.y < 0)
                 || (snake.head.x >= grid.x as i32 || snake.head.y >= grid.y as i32)
             {
-                let _ = sink.send(Box::new(move |s| {
-                    RakeGUI::death_screen(s, grid, display_s);
-                }));
-                break;
+                die = true;
+                // let _ = sink.send(Box::new(move |s| {
+                //     RakeGUI::death_screen(s, grid, display_s);
+                // }));
+                // break;
             }
     
             if !snake.body.is_empty() {
@@ -188,7 +193,6 @@ impl Game{
                 }
             }
     
-            let mut die = false;
             if !collisions.is_empty() {
                 for collision in collisions.iter_mut() {
                     match collision.obj_type {
@@ -212,6 +216,7 @@ impl Game{
                 }
             }
             if die {
+                util::save_score(snake.size);
                 let _ = sink.send(Box::new(move |s| {
                     RakeGUI::death_screen(s, grid, display_s);
                     return;
@@ -224,7 +229,7 @@ impl Game{
             let _ = sink.send(Box::new(move |s: &mut Cursive| {
                 let mut grid_c = grid.clone();
                 
-                RakeGUI::render_screen(s, grid_objects, &dir, &mut grid_c, score);
+                RakeGUI::render_screen(s, grid_objects, &dir, &mut grid_c, score, high_score);
             }));
         });
     }

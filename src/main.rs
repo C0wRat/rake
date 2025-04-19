@@ -1,9 +1,9 @@
 mod game;
-
+mod util;
 use std::{sync::mpsc::channel, thread};
 
 use cursive::{CbSink, CursiveExt};
-use rakedisplay::{sandbox, DisplayMsg, RakeGUI};
+use rakedisplay::{DisplayMsg, RakeGUI};
 use rakelog::{rakeError, rakeInfo, rake_log};
 use rakemodel::grid::Grid;
 use cursive::Cursive;
