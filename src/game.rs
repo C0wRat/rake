@@ -216,7 +216,11 @@ impl Game{
                 }
             }
             if die {
-                util::save_score(snake.size);
+
+                if snake.size > high_score{
+                    util::save_score(snake.size);
+                }
+                
                 let _ = sink.send(Box::new(move |s| {
                     RakeGUI::death_screen(s, grid, display_s);
                     return;
