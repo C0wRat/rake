@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -36,8 +37,8 @@ impl RakeGUI {
         s.add_layer(LinearLayout::vertical().child(TextView::new(" R A K E"))
             .child(Panel::new(LinearLayout::vertical()
                 .child(Button::new("Start", move|s| display_s.send(DisplayMsg::Start).unwrap()))
-                .child(Button::new("Info", |s| rakeInfo!("Info button pushed")))
-                .child(Button::new("Help", |s| rakeInfo!("HELP button pushed")))
+                // .child(Button::new("Info", |s| rakeInfo!("Info button pushed")))
+                // .child(Button::new("Help", |s| rakeInfo!("HELP button pushed")))
                 .child(Button::new("Quit", |s| s.quit()))
                 )
             )
@@ -68,6 +69,10 @@ impl RakeGUI {
         grid: &mut Grid,
         score: i32,
         high_score: i32,
+        round_goal: i32,
+        money: i32,
+        total_score: i32,
+        round: i32
     ) {
         s.pop_layer();
 
@@ -79,11 +84,14 @@ impl RakeGUI {
             .padding(Margins::lrtb(0, 0, 0, 0))
             .title("R A K E"))
             .child(Dialog::text(format!("High Score: {high_score}")).title(format!("score:{score}")))
-    ).child(Dialog::text("")));
+    ).child(Dialog::text(format!("Round: {round}\nRound Goal: {score}/{round_goal}\nMoney: {money}\nTotal Score: {total_score}"))));
        
     }
-}
 
+    pub fn round_win(s: &mut Cursive, new_money: i32){
+        s.add_layer(Dialog::text(format!("Round Complete +${new_money}!")).title("Round Win"));
+    }
+}
 
 pub fn start(s: &mut Cursive) {
     s.pop_layer();

@@ -4,6 +4,7 @@ use rakemodel::{food::food, grid::Grid, grid::GridObject, grid::ObjectType, snak
 use crate::{util, RakeGUI};
 
 use cursive::{Cursive, CbSink, event::Key};
+use std::sync::atomic::{AtomicBool,Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -95,13 +96,32 @@ impl Game{
                snake.head.direction = Some(SnakeDirection::Down)
             }
         });
+
+        let start_round = Arc::new(AtomicBool::new(true));
+
+        let start_round_clone = start_round.clone();
+        s.add_global_callback(Key::Enter, move |_s| {
+
+            start_round_clone.store(true, Ordering::Relaxed);
+        });
     
         let mut food = food::new(5, 5, 1, 'o');
-    
+        let mut round_goal = 2;
+        let mut money = 0;
+        let mut total_score = 0;
+        let mut round = 1;
+        
         // Having input handlers would require snake to be an Arc<Mutex<Snake>> :/
+        
         thread::spawn(move || loop {
             thread::sleep(Duration::from_millis(delay));
-            let mut snake = snake.lock().unwrap();
+            if start_round.load(Ordering::Relaxed){
+                
+                let _ = sink.send(Box::new(move |s: &mut Cursive| {
+                    s.pop_layer();
+                }));  
+
+                let mut snake = snake.lock().unwrap();
     
             if snake.body.len() < snake.size as usize {
                 let body_node = if snake.body.is_empty() {
@@ -216,25 +236,42 @@ impl Game{
                 }
             }
             if die {
-
-                if snake.size > high_score{
-                    util::save_score(snake.size);
+                total_score = total_score + snake.size;
+                
+                if snake.size >= round_goal{
+                    start_round.store(false, Ordering::Relaxed);
+                    let new_money = snake.size / round_goal;
+                    money = money + new_money;
+                    snake.reset();
+                    let _ = sink.send(Box::new(move |s| {
+                        RakeGUI::round_win(s, new_money);    
+                    }));
+                    
+                    round = round + 1;
+                    round_goal = round_goal * 2;
+                    // die = false;
+                }else{
+                    if snake.size > high_score{
+                        util::save_score(snake.size);
+                    }
+                    
+                    let _ = sink.send(Box::new(move |s| {
+                        RakeGUI::death_screen(s, grid, display_s);
+                        return;
+                    }));
+                    break;
                 }
                 
-                let _ = sink.send(Box::new(move |s| {
-                    RakeGUI::death_screen(s, grid, display_s);
-                    return;
-                }));
-                break;
-            }
-    
-            let dir = snake.head.direction.unwrap().clone();
-            let score = snake.clone().size;
-            let _ = sink.send(Box::new(move |s: &mut Cursive| {
+            }else{
+                let dir = snake.head.direction.unwrap().clone();
+                let score = snake.clone().size;
+                let _ = sink.send(Box::new(move |s: &mut Cursive| {
                 let mut grid_c = grid.clone();
                 
-                RakeGUI::render_screen(s, grid_objects, &dir, &mut grid_c, score, high_score);
-            }));
+                    RakeGUI::render_screen(s, grid_objects, &dir, &mut grid_c, score, high_score, round_goal, money, total_score, round);
+                }));  
+            }
+            };
         });
     }
 }

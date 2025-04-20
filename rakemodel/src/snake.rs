@@ -27,6 +27,16 @@ impl Snake {
         }
     }
 
+    pub fn reset(&mut self){
+        rakeInfo!("reseting snake");
+        self.head.x = 0;
+        self.head.y = 0;
+        self.size = 0;
+        self.head.direction = Some(SnakeDirection::Right);
+        self.body.clear();
+
+    }
+
     pub fn update_body(
         // previous_node: GridObject,
         current_node: GridObject,
