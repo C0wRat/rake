@@ -1,4 +1,5 @@
 use crate::{util, RakeGUI};
+use rakeaudio::RakeAudioMessage;
 use rakedisplay::DisplayMsg;
 use rakelog::{rakeDebug, rakeError, rakeInfo};
 use rakemodel::item::{self, Item, ItemType};
@@ -15,6 +16,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use rodio::source::SineWave;
+use rodio::OutputStream;
+use rodio::Source;
+
 pub struct Game {
     round: u32,
     round_goal: u32,
@@ -28,6 +33,7 @@ impl Game {
         sink: cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
         display_r: Receiver<DisplayMsg>,
         display_s: Sender<DisplayMsg>,
+        audio_s: Sender<RakeAudioMessage>,
     ) {
         thread::spawn(move || {
             let init_display_s: Sender<DisplayMsg> = display_s.clone();
@@ -38,8 +44,9 @@ impl Game {
                         match msg {
                             DisplayMsg::Start => {
                                 let start_s = init_display_s.clone();
+                                let audio_s_clone = audio_s.clone();
                                 let _ = sink.send(Box::new(move |s: &mut Cursive| {
-                                    Game::sandbox(s, Grid::new(30, 20), start_s);
+                                    Game::sandbox(s, Grid::new(30, 20), start_s, audio_s_clone);
                                 }));
                             }
                             DisplayMsg::MainMenu => {
@@ -76,7 +83,12 @@ impl Game {
         }
     }
 
-    pub fn sandbox(s: &mut Cursive, grid: Grid, display_s: Sender<DisplayMsg>) {
+    pub fn sandbox(
+        s: &mut Cursive,
+        grid: Grid,
+        display_s: Sender<DisplayMsg>,
+        audio_s: Sender<RakeAudioMessage>,
+    ) {
         let high_score = util::read_score();
         let mut shop = Shop::new();
         let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
@@ -268,6 +280,8 @@ impl Game {
                         match collision.obj_type {
                             ObjectType::None => rakeDebug!("Collided with nothing?"),
                             ObjectType::Food(value) => {
+                                // let _ = stream_handle.play_raw(source.clone().convert_samples());
+                                let _ = audio_s.send(RakeAudioMessage::EatFood);
                                 snake.size = snake.size + value;
                                 for food in food_items.iter_mut() {
                                     if food.body.x == collision.x && food.body.y == collision.y {

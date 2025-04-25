@@ -9,5 +9,7 @@ log = "0.4.27"
 rakelog = {path="./rakelog"}
 rakedisplay = {path="./rakedisplay"}
 rakemodel = {path="./rakemodel"}
+rakeaudio = {path="./rakeaudio"}
 cursive = "0.21.1"
 rand = "0.9.1"
+rodio = "0.20.1"
