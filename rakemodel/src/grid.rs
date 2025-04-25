@@ -1,4 +1,5 @@
 use crate::snake::SnakeDirection;
+use rand::Rng;
 
 #[derive(Clone, Copy)]
 pub struct Grid {
@@ -39,8 +40,7 @@ impl Grid {
     }
 }
 
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct GridObject {
     pub x: i32,
     pub y: i32,
@@ -64,9 +64,15 @@ impl GridObject {
             direction,
         }
     }
+
+    pub fn reset(&mut self, grid: Grid) {
+        let mut rng = rand::rng();
+        self.x = rng.random_range(0..grid.x) as i32;
+        self.y = rng.random_range(0..grid.y) as i32;
+    }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ObjectType {
     None,
     Snake,

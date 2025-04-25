@@ -2,12 +2,12 @@ mod game;
 mod util;
 use std::{sync::mpsc::channel, thread};
 
+use crate::game::Game;
+use cursive::Cursive;
 use cursive::{CbSink, CursiveExt};
 use rakedisplay::{DisplayMsg, RakeGUI};
 use rakelog::{rakeError, rakeInfo, rake_log};
 use rakemodel::grid::Grid;
-use cursive::Cursive;
-use crate::game::Game;
 
 fn main() {
     rake_log::init("rake.log");
