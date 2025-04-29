@@ -7,7 +7,7 @@ use rand::{self, seq::IndexedRandom};
 // This system works via a dice roll so the roll can be in the range of 0-100.
 // this gives the Ultra Rare items a ~2% chance of being pulled and teh Rare items a %5 chance
 const ULTRA_RARE_ITEM_VALUE: u32 = 98;
-const RARE_ITEM_VALUE: u32 = 95;
+const RARE_ITEM_VALUE: u32 = 96;
 
 #[derive(Debug, Clone)]
 pub struct Shop {
@@ -50,13 +50,6 @@ impl Shop {
         let mut items = Vec::new();
 
         items.push(Item::new(
-            String::from("Garden Shears"),
-            8,
-            String::from("Every 10 food chop the snake in half"),
-            ItemType::Shears,
-        ));
-
-        items.push(Item::new(
             String::from("Double"),
             6,
             String::from("Double the ammount of snacks"),
@@ -71,17 +64,24 @@ impl Shop {
         ));
 
         items.push(Item::new(
-            String::from("GoldenSnack"),
-            8,
-            String::from("First snack gives 300 food"),
-            ItemType::GoldenSnack,
+            String::from("Foody"),
+            5,
+            String::from("For each food eaten this item will give 1 food for each time it has been triggerd."),
+            ItemType::Foody,
         ));
 
         items.push(Item::new(
-            String::from("foody"),
+            String::from("Shedding"),
+            6,
+            String::from("For each food eaten 10% chance to remove some size"),
+            ItemType::Shedding,
+        ));
+
+        items.push(Item::new(
+            String::from("Snackception"),
             8,
-            String::from("For each food eaten this item will give 1 food for each time it has been triggerd."),
-            ItemType::Foody,
+            String::from("Every 5 snacks increases the value of a snack by 1"),
+            ItemType::Snackception,
         ));
 
         return items;
@@ -90,11 +90,18 @@ impl Shop {
     fn rare_items() -> Vec<Item> {
         let mut items = Vec::new();
 
+        // items.push(Item::new(
+        //     String::from("Times (N/A)"),
+        //     6,
+        //     String::from("Every 20 snacks add 5 seconds to time"),
+        //     ItemType::Time,
+        // ));
+
         items.push(Item::new(
-            String::from("Times (N/A)"),
-            6,
-            String::from("Every 20 snacks add 5 seconds to time"),
-            ItemType::Time,
+            String::from("GoldenSnack"),
+            9,
+            String::from("First snack gives 300 food"),
+            ItemType::GoldenSnack,
         ));
 
         return items;
@@ -103,12 +110,6 @@ impl Shop {
     fn ultra_rare_items() -> Vec<Item> {
         let mut items = Vec::new();
 
-        items.push(Item::new(
-            String::from("Snackception"),
-            9,
-            String::from("Every 5 snacks increases the value of a snack by 1"),
-            ItemType::Snackception,
-        ));
         items.push(Item::new(
             String::from("Phantom Snake"),
             9,
@@ -121,12 +122,12 @@ impl Shop {
             String::from("Start with a snake length of 500."),
             ItemType::LongBoi,
         ));
-        items.push(Item::new(
-            String::from("4Ever"),
-            9,
-            String::from("Prevent snake length reset on new rounds."),
-            ItemType::ForEver,
-        ));
+        // items.push(Item::new(
+        //     String::from("4Ever"),
+        //     9,
+        //     String::from("Prevent snake length reset on new rounds."),
+        //     ItemType::ForEver,
+        // ));
 
         return items;
     }

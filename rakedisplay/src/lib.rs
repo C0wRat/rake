@@ -1,4 +1,5 @@
 use std::fmt::format;
+use std::process::Child;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -7,7 +8,7 @@ use std::time::Duration;
 
 use cursive::event::Key;
 use cursive::view::Margins;
-use cursive::views::{Button, Panel, TextView};
+use cursive::views::{Button, Panel, TextArea, TextView};
 use cursive::views::{Dialog, LinearLayout};
 use cursive::Cursive;
 use rakelog::{rakeDebug, rakeInfo};
@@ -49,24 +50,24 @@ impl RakeGUI {
                             display_s.send(DisplayMsg::Start).unwrap()
                         }))
                         // .child(Button::new("Info", |s| rakeInfo!("Info button pushed")))
-                        .child(Button::new("shoptest", |s| {
-                            let mut shop = Shop::new();
-                            let mut items = Vec::new();
-                            let snake = Arc::new(Mutex::new(Snake::new(0, 0)));
-                            items.push(shop.get_shop_item().unwrap().clone());
-                            items.push(shop.get_shop_item().unwrap().clone());
-                            items.push(shop.get_shop_item().unwrap().clone());
-                            RakeGUI::shop(
-                                s,
-                                Arc::new(AtomicBool::new(false)),
-                                items,
-                                snake.clone(),
-                            );
-                            let snake_lock = snake.lock().unwrap();
-                            rakeInfo!("Snake Items: {:#?}", snake_lock.items);
-                        }))
+                        // .child(Button::new("shoptest", |s| {
+                        //     let mut shop = Shop::new();
+                        //     let mut items = Vec::new();
+                        //     let snake = Arc::new(Mutex::new(Snake::new(0, 0)));
+                        //     items.push(shop.get_shop_item().unwrap().clone());
+                        //     items.push(shop.get_shop_item().unwrap().clone());
+                        //     items.push(shop.get_shop_item().unwrap().clone());
+                        //     RakeGUI::shop(
+                        //         s,
+                        //         Arc::new(AtomicBool::new(false)),
+                        //         items,
+                        //         snake.clone(),
+                        //     );
+                        //     let snake_lock = snake.lock().unwrap();
+                        //     rakeInfo!("Snake Items: {:#?}", snake_lock.items);
+                        // }))
                         .child(Button::new("Quit", |s| s.quit())),
-                )),
+                )).child(TextView::new("Alpha 0.1")),
         );
     }
 
@@ -99,6 +100,7 @@ impl RakeGUI {
         total_score: i32,
         round: i32,
         lives: i32,
+        length: i32,
     ) {
         s.pop_layer();
 
@@ -121,7 +123,7 @@ impl RakeGUI {
         let live_string = "(=)".repeat(lives as usize);
         let lives_window: Dialog = Dialog::text(format!("{live_string}")).title("Lives");
         let info_window = Dialog::text(format!(
-            "Round: {round}\nCoins: {money}\nRun Score: {total_score}"
+            "Round: {round}\nCoins: {money}\nRun Score: {total_score}\nLength: {length}"
         ));
 
         let item_one = Dialog::text("Every 10 food chop the snake in half").title("Shears");

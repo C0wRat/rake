@@ -36,7 +36,7 @@ impl Grid {
                 return object.i;
             }
         }
-        return ' ';
+        return '·';
     }
 }
 

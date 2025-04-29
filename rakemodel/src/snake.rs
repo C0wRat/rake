@@ -18,6 +18,7 @@ pub struct Snake {
     pub lives: i32,
     pub items: Vec<Item>,
     pub money: i32,
+    pub new_food_eaten: u32,
 }
 
 impl Snake {
@@ -29,6 +30,7 @@ impl Snake {
             lives: 5,
             items: Vec::new(),
             money: 0,
+            new_food_eaten: 0,
         }
     }
 

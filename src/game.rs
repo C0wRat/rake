@@ -4,6 +4,7 @@ use rakedisplay::DisplayMsg;
 use rakelog::{rakeDebug, rakeError, rakeInfo};
 use rakemodel::item::{self, Item, ItemType};
 use rakemodel::shop::Shop;
+use rakemodel::snake;
 use rakemodel::{
     food::Food, grid::Grid, grid::GridObject, grid::ObjectType, snake::Snake, snake::SnakeDirection,
 };
@@ -22,12 +23,17 @@ use rodio::Source;
 
 pub struct Game {
     round: u32,
+    round_score: u32,
     round_goal: u32,
 }
 
 impl Game {
     pub fn new(round: u32, round_goal: u32) -> Self {
-        Self { round, round_goal }
+        Self {
+            round,
+            round_score: 0,
+            round_goal,
+        }
     }
     pub fn init(
         sink: cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
@@ -63,22 +69,140 @@ impl Game {
         });
     }
 
-    fn trigger_items(snake: Arc<Mutex<Snake>>, food: &mut Vec<Food>, grid: Grid) {
-        rakeInfo!("Trigger items");
+    fn reset_items(snake: Arc<Mutex<Snake>>) {
         let mut snake = snake.lock().unwrap();
+
         for item in snake.items.iter_mut() {
-            rakeInfo!("triggering {:#?}", item);
+            match item.item_type {
+                ItemType::Foody => item.trigger_count = 0,
+                _ => rakeInfo!("uhhh"),
+            }
+        }
+    }
+
+    fn trigger_items(
+        snake: Arc<Mutex<Snake>>,
+        food_items: &mut Vec<Food>,
+        grid: Grid,
+        round_score: &mut i32,
+    ) {
+        let mut snake = snake.lock().unwrap();
+
+        let mut triggered_items: Vec<Item> = Vec::new();
+        let food_eaten = snake.new_food_eaten;
+        for item in snake.items.iter_mut() {
+            // rakeInfo!("triggering {:#?}", item);
+            item.food_count += food_eaten;
+
             if !item.triggered {
+                if item.item_type == ItemType::Foody {
+                    if food_eaten > 0 {
+                        item.trigger_count += 1
+                    }
+                }
+
+                triggered_items.push(item.clone());
+
                 match item.item_type {
-                    ItemType::Double => {
-                        rakeInfo!("DOUBLED FOOD ITEM");
-                        for _ in 0..food.len() {
-                            food.push(Food::new(grid, 1, 'x'))
+                    ItemType::LongBoi => item.triggered = false,
+                    ItemType::PhantomSnake => item.triggered = false,
+                    ItemType::Shedding => item.triggered = false,
+                    ItemType::GoldenSnack => item.triggered = false,
+                    ItemType::Foody => item.triggered = false,
+                    ItemType::Snackception => {
+                        item.triggered = false;
+                        if item.food_count == 5 {
+                            item.food_count = 0;
                         }
                     }
-                    _ => rakeError!("NA"),
+                    _ => item.triggered = true,
                 }
-                item.triggered = true;
+            }
+        }
+
+        for item in triggered_items {
+            match item.item_type {
+                ItemType::Double => {
+                    for _ in 0..food_items.len() {
+                        food_items.push(Food::new(grid, 1, 'x'))
+                    }
+                }
+                ItemType::Snacks => {
+                    for food in food_items.iter_mut() {
+                        match food.body.obj_type {
+                            ObjectType::Food(val) => {
+                                rakeInfo!("Old value: {val}");
+                                food.body.obj_type = ObjectType::Food(val * 2);
+                                rakeInfo!("new value: {:#?}", food.body.obj_type);
+                            }
+                            _ => rakeError!("uhhh."),
+                        }
+                    }
+                }
+
+                ItemType::LongBoi => {
+                    snake.size = 500;
+                }
+
+                ItemType::PhantomSnake => {
+                    for obj in snake.body.iter_mut() {
+                        obj.obj_type = ObjectType::None
+                    }
+                }
+
+                ItemType::Shedding => {
+                    for _ in 0..snake.new_food_eaten {
+                        let mut rng = rand::rng();
+                        let random_number = rng.random_range(0..10);
+                        if random_number == 1 {
+                            for _ in 0..(snake.size / 10) {
+                                snake.body.pop();
+                            }
+                            snake.size -= (snake.size / 10);
+                        }
+                    }
+                }
+                ItemType::Foody => {
+                    rakeInfo!("new Food {}", snake.new_food_eaten);
+                    rakeInfo!("trigger count {}", item.trigger_count);
+                    for _ in 0..snake.new_food_eaten {
+                        for _ in 0..item.trigger_count {
+                            rakeInfo!("Adding 1 to snake size");
+                            snake.size += 1;
+                            *round_score += 1;
+                        }
+                    }
+                }
+                ItemType::GoldenSnack => {
+                    rakeInfo!(
+                        "Snack check: {} > 0 & {} == 1",
+                        snake.new_food_eaten,
+                        item.food_count
+                    );
+                    if snake.new_food_eaten > 0 {
+                        if item.food_count == 1 {
+                            rakeError!("GOLDEN SNACK TRIGGERED!");
+                            snake.size += 300;
+                            *round_score += 300;
+                        }
+                    }
+                }
+
+                ItemType::Snackception => {
+                    rakeInfo!("Food count {}", item.food_count);
+                    if item.food_count == 5 {
+                        for food in food_items.iter_mut() {
+                            match food.body.obj_type {
+                                ObjectType::Food(val) => {
+                                    food.body.obj_type = ObjectType::Food(val + 1);
+                                }
+                                _ => rakeError!("uhhh."),
+                            }
+                        }
+                    }
+                }
+
+                _ => rakeError!("NA"),
             }
         }
     }
@@ -140,14 +264,14 @@ impl Game {
         });
 
         let mut food_items = Vec::new();
-        let food = Food::new(grid, 10, 'o');
+        let food = Food::new(grid, 1, 'o');
         food_items.push(food.clone());
 
         let mut round_goal = 2;
+        let mut round_score = 0;
         // let mut money = Arc::0;
         let mut total_score = 0;
         let mut round = 1;
-        let mut trigger_check = false;
 
         // Having input handlers would require snake to be an Arc<Mutex<Snake>> :/
         thread::spawn(move || loop {
@@ -174,15 +298,10 @@ impl Game {
                     s.pop_layer();
                 }));
 
-                if trigger_check == false {
-                    trigger_check = true;
-                    Game::trigger_items(snake.clone(), &mut food_items, grid);
-
-                    rakeInfo!("Food items: {:#?}", food_items);
-                }
+                Game::trigger_items(snake.clone(), &mut food_items, grid, &mut round_score);
 
                 let mut snake = snake.lock().unwrap();
-
+                snake.new_food_eaten = 0;
                 if snake.body.len() < snake.size as usize {
                     let body_node = if snake.body.is_empty() {
                         // rakeInfo!("Adding body_node to head");
@@ -208,10 +327,6 @@ impl Game {
                     || (snake.head.x >= grid.x as i32 || snake.head.y >= grid.y as i32)
                 {
                     die = true;
-                    // let _ = sink.send(Box::new(move |s| {
-                    //     RakeGUI::death_screen(s, grid, display_s);
-                    // }));
-                    // break;
                 }
 
                 if !snake.body.is_empty() {
@@ -278,11 +393,13 @@ impl Game {
                 if !collisions.is_empty() {
                     for collision in collisions.iter_mut() {
                         match collision.obj_type {
-                            ObjectType::None => rakeDebug!("Collided with nothing?"),
+                            ObjectType::None => rakeInfo!("Collided with nothing?"),
                             ObjectType::Food(value) => {
                                 // let _ = stream_handle.play_raw(source.clone().convert_samples());
                                 let _ = audio_s.send(RakeAudioMessage::EatFood);
                                 snake.size = snake.size + value;
+                                round_score = round_score + value;
+                                snake.new_food_eaten += 1;
                                 for food in food_items.iter_mut() {
                                     if food.body.x == collision.x && food.body.y == collision.y {
                                         food.reset(grid);
@@ -290,7 +407,7 @@ impl Game {
                                 }
                             }
                             ObjectType::Snake => {
-                                // rakeInfo!("Collided with self.");
+                                rakeInfo!("Collided with self");
                                 die = true;
                             }
                         }
@@ -301,11 +418,14 @@ impl Game {
                         item.reset(grid);
                     }
 
-                    trigger_check = false;
-                    total_score = total_score + snake.size;
-                    if snake.size >= round_goal {
+                    total_score = total_score + round_score;
+
+                    if total_score > high_score {
+                        util::save_score(total_score);
+                    }
+
+                    if round_score >= round_goal {
                         start_round.store(false, Ordering::Relaxed);
-                        let round_score = snake.size;
                         let new_money = round_score / round_goal;
                         snake.add_lives(new_money - 1);
                         snake.money = snake.money + new_money;
@@ -319,16 +439,15 @@ impl Game {
                         round_goal =
                             round_goal + (round_goal / 2) + ((round_score / 2) * (new_money / 2));
 
-                        if (round % 1) == 0 {
+                        round_score = 0;
+
+                        if (round % 5) == 0 {
                             in_shop.store(true, Ordering::Relaxed);
                         }
 
                         // die = false;
                     } else {
                         snake.lives = snake.lives - 1;
-                        if total_score > high_score {
-                            util::save_score(snake.size);
-                        }
 
                         if snake.lives <= 0 {
                             let _ = sink.send(Box::new(move |s| {
@@ -343,13 +462,14 @@ impl Game {
                             let _ = sink.send(Box::new(move |s| {
                                 RakeGUI::round_failed(s, lives);
                             }));
+                            round_score = 0;
                         }
                     }
                 } else {
                     let dir = snake.head.direction.unwrap().clone();
-                    let score = snake.clone().size;
                     let lives = snake.lives;
                     let money = snake.money;
+                    let length = snake.size;
                     let _ = sink.send(Box::new(move |s: &mut Cursive| {
                         let mut grid_c = grid.clone();
                         RakeGUI::render_screen(
@@ -357,13 +477,14 @@ impl Game {
                             grid_objects,
                             &dir,
                             &mut grid_c,
-                            score,
+                            round_score,
                             high_score,
                             round_goal,
                             money,
                             total_score,
                             round,
                             lives,
+                            length,
                         );
                     }));
                 }
