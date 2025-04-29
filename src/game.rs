@@ -81,12 +81,12 @@ impl Game {
     }
 
     fn trigger_items(
-        snake: Arc<Mutex<Snake>>,
+        snake_m: Arc<Mutex<Snake>>,
         food_items: &mut Vec<Food>,
         grid: Grid,
         round_score: &mut i32,
     ) {
-        let mut snake = snake.lock().unwrap();
+        let mut snake = snake_m.lock().unwrap();
 
         let mut triggered_items: Vec<Item> = Vec::new();
         let food_eaten = snake.new_food_eaten;
@@ -215,7 +215,8 @@ impl Game {
     ) {
         let high_score = util::read_score();
         let mut shop = Shop::new();
-        let snake = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
+        let snake_m = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
+        let snake = snake_m.clone();
         rakeInfo!("Grid Size: {}.{}", grid.x, grid.y);
         // let mut snake = Snake::new();
         s.pop_layer();
@@ -264,7 +265,7 @@ impl Game {
         });
 
         let mut food_items = Vec::new();
-        let food = Food::new(grid, 1, 'o');
+        let food = Food::new(grid, 10, 'o');
         food_items.push(food.clone());
 
         let mut round_goal = 2;
@@ -285,11 +286,12 @@ impl Game {
                 let start_round_clone_2 = start_round.clone();
                 let mut items = Vec::new();
 
+                let audio_s_clone = audio_s.clone();
                 items.push(shop.get_shop_item().unwrap().clone());
                 items.push(shop.get_shop_item().unwrap().clone());
                 items.push(shop.get_shop_item().unwrap().clone());
                 let _ = sink.send(Box::new(move |s: &mut Cursive| {
-                    RakeGUI::shop(s, start_round_clone_2, items, snake_clone.clone());
+                    RakeGUI::shop(s, start_round_clone_2, items, snake_clone.clone(),audio_s_clone);
                 }));
             }
 
@@ -345,6 +347,13 @@ impl Game {
                         }
                     }
                 }
+
+                // Not really sure if this is making it better :/
+                // I cant really be bothered to fix this
+                // But its clearly becasue I lock out the snake object for a stupid ammount of time
+                // Probably could move ui updated to a different thread that can then access the snake data.
+                std::mem::drop(snake);
+                let mut snake = snake_m.lock().unwrap();
 
                 let old_head = snake.head.clone();
                 match snake.head.direction.unwrap() {
@@ -414,6 +423,7 @@ impl Game {
                     }
                 }
                 if die {
+                    let _ = audio_s.send(RakeAudioMessage::Die);
                     for item in food_items.iter_mut() {
                         item.reset(grid);
                     }
@@ -441,7 +451,7 @@ impl Game {
 
                         round_score = 0;
 
-                        if (round % 5) == 0 {
+                        if (round % 1) == 0 {
                             in_shop.store(true, Ordering::Relaxed);
                         }
 

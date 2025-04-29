@@ -1,7 +1,7 @@
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use rakelog::rakeError;
+use rakelog::{rakeError, rakeInfo};
 use rodio::source::SineWave;
 use rodio::Source;
 use rodio::{OutputStream, Sink};
@@ -9,9 +9,12 @@ use std::time::Duration;
 use std::io::BufReader;
 use std::fs::File;
 use rodio::Decoder;
+use std::sync::Arc;
 
 pub enum RakeAudioMessage {
     EatFood,
+    Die,
+    Buy,
 }
 
 fn main() {
@@ -30,15 +33,27 @@ impl RakeAudio {
 
             let _ = stream_handle.play_raw(game_music_source.convert_samples());
 
+            let eat_music_file = BufReader::new(File::open("eat.wav").unwrap());
+            let eat_music_source = Decoder::new(eat_music_file).unwrap().buffered();
+            
+            let crash_music_file = BufReader::new(File::open("crash.wav").unwrap());
+            let crash_music_source = Decoder::new(crash_music_file).unwrap().buffered();
+            
+            let buy_music_file = BufReader::new(File::open("buy.wav").unwrap());
+            let buy_music_source = Decoder::new(buy_music_file).unwrap().buffered();
             
 
             loop {
                 match audio_r.recv() {
                     Ok(msg) => match msg {
                         RakeAudioMessage::EatFood => {
-                            let source =
-                                SineWave::new(700.0).take_duration(Duration::from_secs_f32(0.1));
-                            let _ = stream_handle.play_raw(source.convert_samples());
+                            let _ = stream_handle.play_raw(eat_music_source.clone().convert_samples());
+                        },
+                        RakeAudioMessage::Die => {
+                            let _ = stream_handle.play_raw(crash_music_source.clone().convert_samples());
+                        }
+                        RakeAudioMessage::Buy => {
+                            let _ = stream_handle.play_raw(buy_music_source.clone().convert_samples());
                         }
 
                     },

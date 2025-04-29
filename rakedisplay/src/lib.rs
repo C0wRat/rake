@@ -19,6 +19,7 @@ use rakemodel::{
     grid::{Grid, GridObject, ObjectType},
     snake::{Snake, SnakeDirection},
 };
+use rakeaudio::RakeAudioMessage;
 use rand::Rng;
 
 pub struct RakeGUI {
@@ -163,6 +164,7 @@ impl RakeGUI {
         start_round: Arc<AtomicBool>,
         items: Vec<Item>,
         snake: Arc<Mutex<Snake>>,
+        audio_s: Sender<RakeAudioMessage>
     ) {
         let item_one = items.get(0).unwrap().clone();
         let item_two = items.get(1).unwrap().clone();
@@ -172,11 +174,16 @@ impl RakeGUI {
         let snake_b = snake.clone();
         let snake_c = snake.clone();
 
+        let audio_s_a = audio_s.clone();
+        let audio_s_b = audio_s.clone();
+        let audio_s_c = audio_s.clone();
+
         let item1 = Dialog::text(format!("{}", item_one.description))
             .title(format!("{}", item_one.item_name))
             .button(format!("{} Coins", item_one.value), move |_s| {
                 let mut snake = snake_a.lock().unwrap();
                 if snake.money >= item_one.value {
+                    let _ = audio_s_a.send(RakeAudioMessage::Buy);
                     snake.money = snake.money - item_one.value;
                     snake.items.push(item_one.clone());
                 }
@@ -187,6 +194,7 @@ impl RakeGUI {
             .button(format!("{} Coins", item_two.value), move |_s| {
                 let mut snake = snake_b.lock().unwrap();
                 if snake.money >= item_two.value {
+                    let _ = audio_s_b.send(RakeAudioMessage::Buy);
                     snake.money = snake.money - item_two.value;
                     snake.items.push(item_two.clone());
                 }
@@ -197,6 +205,7 @@ impl RakeGUI {
             .button(format!("{} Coins", item_three.value), move |_s| {
                 let mut snake = snake_c.lock().unwrap();
                 if snake.money >= item_three.value {
+                    let _ = audio_s_c.send(RakeAudioMessage::Buy);
                     snake.money = snake.money - item_three.value;
                     snake.items.push(item_three.clone());
                 }
