@@ -2,6 +2,7 @@ use crate::grid::GridObject;
 use crate::grid::ObjectType;
 use crate::item::Item;
 use rakelog::rakeInfo;
+use rand::Rng;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SnakeDirection {
@@ -46,8 +47,9 @@ impl Snake {
 
     pub fn reset(&mut self) {
         rakeInfo!("reseting snake");
-        self.head.x = 0;
-        self.head.y = 0;
+        let mut rng = rand::rng();
+        self.head.x = rng.random_range(5..15);
+        self.head.y = rng.random_range(5..15);
         self.size = 0;
         self.head.direction = Some(SnakeDirection::Right);
         self.body.clear();

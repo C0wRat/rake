@@ -80,6 +80,21 @@ impl Game {
         }
     }
 
+    pub fn build_border_wall(grid: Grid) -> Vec<GridObject> {
+        let mut wall_objs = Vec::new();
+
+        for x in 0..grid.x as i32{
+            for y in 0..grid.y as i32{
+                if x == 0 || x == grid.x as i32 -1  || y == 0 || y == grid.y as i32 -1{
+                    wall_objs.push(GridObject::new(x, y, '▮', ObjectType::Snake, None));
+                }
+            }
+        }
+
+
+        return wall_objs;
+    }
+
     fn trigger_items(
         snake_m: Arc<Mutex<Snake>>,
         food_items: &mut Vec<Food>,
@@ -215,7 +230,8 @@ impl Game {
     ) {
         let high_score = util::read_score();
         let mut shop = Shop::new();
-        let snake_m = Arc::new(Mutex::new(Snake::new(0, 0))).clone();
+        let snake_m = Arc::new(Mutex::new(Snake::new(1, 1))).clone();
+        snake_m.lock().unwrap().reset();;
         let snake = snake_m.clone();
         rakeInfo!("Grid Size: {}.{}", grid.x, grid.y);
         // let mut snake = Snake::new();
@@ -265,7 +281,7 @@ impl Game {
         });
 
         let mut food_items = Vec::new();
-        let food = Food::new(grid, 10, 'o');
+        let food = Food::new(grid, 1, 'o');
         food_items.push(food.clone());
 
         let mut round_goal = 2;
@@ -376,6 +392,12 @@ impl Game {
 
                 grid_objects.push(snake_head);
 
+
+                // let mut wall_objs = Game::build_border_wall(grid);
+                // grid_objects.append(&mut wall_objs);
+
+                // grid_objects.push();
+
                 for item in food_items.clone() {
                     grid_objects.push(item.body);
                 }
@@ -451,7 +473,7 @@ impl Game {
 
                         round_score = 0;
 
-                        if (round % 1) == 0 {
+                        if (round % 5) == 0 {
                             in_shop.store(true, Ordering::Relaxed);
                         }
 
