@@ -281,7 +281,7 @@ impl Game {
         });
 
         let mut food_items = Vec::new();
-        let food = Food::new(grid, 1, 'o');
+        let food = Food::new(grid, 10, 'o');
         food_items.push(food.clone());
 
         let mut round_goal = 2;
@@ -473,7 +473,7 @@ impl Game {
 
                         round_score = 0;
 
-                        if (round % 5) == 0 {
+                        if (round % 1) == 0 {
                             in_shop.store(true, Ordering::Relaxed);
                         }
 
@@ -502,6 +502,7 @@ impl Game {
                     let lives = snake.lives;
                     let money = snake.money;
                     let length = snake.size;
+                    let items = snake.items.clone();
                     let _ = sink.send(Box::new(move |s: &mut Cursive| {
                         let mut grid_c = grid.clone();
                         RakeGUI::render_screen(
@@ -517,6 +518,7 @@ impl Game {
                             round,
                             lives,
                             length,
+                            items,
                         );
                     }));
                 }

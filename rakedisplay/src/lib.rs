@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use cursive::event::Key;
 use cursive::view::Margins;
-use cursive::views::{Button, Panel, TextArea, TextView};
+use cursive::views::{Button, ListView, Panel, SliderView, TextArea, TextView};
 use cursive::views::{Dialog, LinearLayout};
 use cursive::Cursive;
 use rakelog::{rakeDebug, rakeInfo};
@@ -102,6 +102,7 @@ impl RakeGUI {
         round: i32,
         lives: i32,
         length: i32,
+        items: Vec<Item>
     ) {
         s.pop_layer();
 
@@ -135,16 +136,27 @@ impl RakeGUI {
 
         let round_goal_window = Dialog::text(format!("{score}/{round_goal}")).title("Round Goal");
 
-        let item_pane = LinearLayout::vertical()
-            .child(item_one)
-            .child(item_two)
-            .child(item_three)
-            .child(item_four);
+        // let item_pane = LinearLayout::vertical()
+        //     .child(item_one)
+        //     .child(item_two)
+        //     .child(item_three)
+        //     .child(item_four);
+
+        let mut item_string = String::new();
+
+        for item in items{
+            item_string =  item_string + &item.item_name + "\n";
+        }
+
+        
+        let item_pane = Dialog::text(item_string).title("Items");
+        
 
         let info_pane = LinearLayout::vertical()
             .child(round_goal_window)
             .child(lives_window)
-            .child(info_window);
+            .child(info_window)
+            .child(item_pane);
 
         s.add_layer(
             LinearLayout::vertical().child(
